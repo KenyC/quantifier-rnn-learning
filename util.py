@@ -18,12 +18,40 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 from tensorboard.backend.event_processing \
         import event_accumulator as ea
 import pandas as pd
+import numpy as np
+import quantifiers
 
 
 # NOTE: with port to tf.estimator interface, I now write CSVs directly at the
 # end of a trial.  This makes convert_trials_to_csv -- and its helper get_table
 # -- obsolete.  I am leaving them here for now in case there's a use in the
 # future.
+
+int_to_char = {1 : "AB" ,2 : "A", 3 : "B", 4 : "_"}
+
+def show_data(dataGen, nShow = 20, random = True):
+    nData = len(dataGen._labeled_data)
+    
+    labData = []
+    if random:
+        for i in range(nShow):
+            labData.append(dataGen._labeled_data[np.random.randint(nData)])
+    else:
+        labData = dataGen._labeled_data[:nShow]
+
+    for preDatum in labData:
+        label, seq = (preDatum[1][0]==1), np.array(preDatum[0])
+        
+        model = seq[:,:quantifiers.Quantifier.num_chars]
+        quantifier = seq[:,quantifiers.Quantifier.num_chars:]
+        
+        model = np.argmax(model, axis=1) + np.sum(model,axis=1)
+        quantifier = np.argmax(quantifier[0])
+
+        model = [int_to_char[x] for x in model if x != 0]
+
+
+        print("\"{} As are Bs\" : [{}] -> {}".format(dataGen._quantifiers[quantifier]._name,",".join(model),label))
 
 def convert_trials_to_csv(in_path, trials, out_path):
     """Takes data that was output as TF events, converts into more digestible

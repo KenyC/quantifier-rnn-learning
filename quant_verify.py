@@ -20,6 +20,7 @@ import tensorflow as tf
 import numpy as np
 
 import data_gen
+import bias_data_gen
 import quantifiers
 import util
 
@@ -154,7 +155,7 @@ def lstm_model_fn(features, labels, mode, params):
     target_by_quant = tf.dynamic_partition(
         target, quant_indices, num_quants)
 
-    for idx in xrange(num_quants):
+    for idx in range(num_quants):
         key = '{}_accuracy'.format(params['quantifiers'][idx]._name)
         eval_metrics[key] = tf.metrics.accuracy(
             target_by_quant[idx], prediction_by_quant[idx])
@@ -174,12 +175,14 @@ class EvalEarlyStopHook(tf.train.SessionRunHook):
     See https://stackoverflow.com/questions/47137061/. """
 
     def __init__(self, estimator, eval_input, filename,
-                 num_steps=50, stop_loss=0.02):
+                 num_steps=50, stop_loss=0.02, trialN = 0, accuracy_stop = 0.99):
 
         self._estimator = estimator
         self._input_fn = eval_input
         self._num_steps = num_steps
         self._stop_loss = stop_loss
+        self._trialN=trialN
+        self._accuracy_stop = accuracy_stop
         # store results of evaluations
         self._results = defaultdict(list)
         self._filename = filename
@@ -201,13 +204,14 @@ class EvalEarlyStopHook(tf.train.SessionRunHook):
         if (global_step-1) % self._num_steps == 0:
             ev_results = self._estimator.evaluate(input_fn=self._input_fn)
 
-            print ''
+            print('')
+            print('Trial: {} , step {}'.format(self._trialN, global_step))
             for key, value in ev_results.items():
                 self._results[key].append(value)
-                print '{}: {}'.format(key, value)
+                print('{}: {}'.format(key, value))
 
             # TODO: add running total accuracy or other complex stop condition?
-            if ev_results['loss'] < self._stop_loss:
+            if ev_results['loss'] < self._stop_loss or ev_results['total_accuracy'] > self._accuracy_stop:
                 run_context.request_stop()
 
     def end(self, session):
@@ -215,8 +219,7 @@ class EvalEarlyStopHook(tf.train.SessionRunHook):
         util.dict_to_csv(self._results, self._filename)
 
 
-def run_trial(eparams, hparams, trial_num,
-              write_path='/tmp/tensorflow/quantexp'):
+def run_trial(eparams, hparams, trial_num,write_path='/tmp/tensorflow/quantexp'):
 
     tf.reset_default_graph()
 
@@ -236,10 +239,14 @@ def run_trial(eparams, hparams, trial_num,
         config=run_config)
 
     # GENERATE DATA
-    generator = data_gen.DataGenerator(
-        hparams['max_len'], hparams['quantifiers'],
-        mode=eparams['generator_mode'],
-        num_data_points=eparams['num_data'])
+
+    if "generator" not in eparams:
+        generator = data_gen.DataGenerator(
+            hparams['max_len'], hparams['quantifiers'],
+            mode=eparams['generator_mode'],
+            num_data_points=eparams['num_data'])
+    else:
+        generator = eparams["generator"]
 
     training_data = generator.get_training_data()
     test_data = generator.get_test_data()
@@ -266,16 +273,42 @@ def run_trial(eparams, hparams, trial_num,
         batch_size=len(test_x),
         shuffle=False)
 
-    print '\n------ TRIAL {} -----'.format(trial_num)
+    print('\n------ TRIAL {} -----'.format(trial_num))
 
     # train and evaluate model together, using the Hook
     model.train(input_fn=train_input_fn,
                 hooks=[EvalEarlyStopHook(model, eval_input_fn, csv_file,
                                          eparams['eval_steps'],
-                                         eparams['stop_loss'])])
+                                         eparams['stop_loss'],
+                                         trialN = trial_num,
+                                         accuracy_stop = eparams['accuracy_stop'] if 'accuracy_stop' in eparams else 0.99 )])
 
 
 # DEFINE AN EXPERIMENT
+
+def experiment_bias_data(write_dir='data/expKeny/expBiased'):
+    num_data = 300000
+    mode = 'g'
+
+    hparams = {'hidden_size': 12, 'num_layers': 2, 'max_len': 30, 'min_len': 10,
+               'num_classes': 2, 'dropout': 1.0,
+               'quantifiers': [quantifiers.nall, quantifiers.notonly]}
+    print("########GENERATING DATA SET")
+    generator = bias_data_gen.BiasedDGNAllNOnly(
+                hparams['max_len'], hparams['quantifiers'],
+                num_data_points=num_data, min_len = hparams["min_len"])
+    print("########DATA SET GENERATED")
+    eparams = {'num_epochs': 4, 'batch_size': 8,
+               'generator_mode': mode, 'num_data': num_data,
+               'eval_steps': 50, 'stop_loss': 0.02,
+               "generator" : generator               
+               }
+    
+    # num_trials = 30
+    num_trials = 1
+
+    for idx in range(num_trials):
+        run_trial(eparams, hparams, idx, write_dir)
 
 def experiment_one_a(write_dir='data/exp1a'):
 
@@ -379,25 +412,27 @@ def test():
         run_trial(eparams, hparams, idx)
 
 
+
 if __name__ == '__main__':
 
     # RUN AN EXPERIMENT, with command-line arguments
+    experiment_bias_data()
+    if False:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--exp', help='which experiment to run', type=str)
+        parser.add_argument('--out_path', help='path to output', type=str)
+        args = parser.parse_args()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--exp', help='which experiment to run', type=str)
-    parser.add_argument('--out_path', help='path to output', type=str)
-    args = parser.parse_args()
+        func_map = {
+            'one_a': experiment_one_a,
+            'one_b': experiment_one_b,
+            'two': experiment_two,
+            'three': experiment_three,
+            'test': test
+        }
+        func = func_map[args.exp]
 
-    func_map = {
-        'one_a': experiment_one_a,
-        'one_b': experiment_one_b,
-        'two': experiment_two,
-        'three': experiment_three,
-        'test': test
-    }
-    func = func_map[args.exp]
-
-    if args.out_path:
-        func(args.out_path)
-    else:
-        func()
+        if args.out_path:
+            func(args.out_path)
+        else:
+            func()

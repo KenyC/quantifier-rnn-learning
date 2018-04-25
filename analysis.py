@@ -80,7 +80,7 @@ def remove_bad_trials(data, threshold=0.97):
     # a trial is bad if the forward mean never hit 0.99
     bad_trials = [idx for idx, thresh in enumerate(threshold_pos)
                   if thresh is None]
-    print 'Number of bad trials: {}'.format(len(bad_trials))
+    print('Number of bad trials: {}'.format(len(bad_trials)))
     for trial in bad_trials:
         del data[trial]
 

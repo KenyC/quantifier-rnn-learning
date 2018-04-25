@@ -147,9 +147,9 @@ def transfer_test():
         shuffle=False)
 
     predictions = list(model.predict(input_fn=predict_input_fn))
-    for idx in xrange(5):
-        print 'input: {}\nprobs: {}\n'.format(some_inputs[idx],
-                                              predictions[idx]['probs'])
+    for idx in range(5):
+        print('input: {}\nprobs: {}\n'.format(some_inputs[idx],
+                                              predictions[idx]['probs']))
 
 
 if __name__ == '__main__':
