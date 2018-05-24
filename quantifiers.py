@@ -16,6 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
 import numpy as np
+from math import sqrt
 import gc
 
 
@@ -55,6 +56,135 @@ class Quantifier(object):
 
     def __call__(self, seq):
         return self._verify(seq)
+
+    def evaluateMultiple(self, seqs):
+        return [self(seq) for seq in seqs]
+# REWRITE DOC FOR THIS FUNCTION
+"""
+Measure how monotonic a quantifier is.
+
+Args:
+    - q : the quantifier to be measured
+    - num_samples (optional: 100): number of random data points to test the quantifier on
+
+
+
+"""
+# CAP = 100000
+def measure_monotonicity(q, num_samples = 1000, min_len = 3, max_len = 20):
+
+    # We generate the values for B from this matrix
+    helper = np.triu(np.ones((max_len+1,max_len+1)),k=1)[:-1,:]
+
+    # Mapping of pairs to vlaues
+    def toNum(a,b):
+        return int(2*(1-a)+(1-b))
+
+    def isMonotonic(s):
+        # Observed transition between true and false
+        obs = 0
+
+        for i in range(len(s)-1):
+            if s[i]!=s[i+1]:
+                obs+=1
+        
+        return obs<2
+
+
+    # Generate values for A
+    list_a = [np.random.randint(Quantifier.num_chars//2, size = np.random.randint(min_len, max_len+1)) for _ in range(num_samples)]
+    
+
+    # Generate values for B
+    list_b = [np.transpose(helper[:len(a),:len(a)+1]) for a in list_a]
+    #return list_a[0],list_b[0]
+
+    # Generate arguments
+    list_x = [[np.array([Quantifier.chars[toNum(a[j],b[j])] for j in range(len(a))]) for b in list_b[i]] for i,a in enumerate(list_a)]
+    #return list_x[0]
+
+    # Shuffle arguments: the shuffle has to be the same within one block
+    for i,block in enumerate(list_x):
+        indices = np.random.permutation(len(block[0]))
+        list_x[i]=[seq[indices,:] for seq in list_x[i]]
+
+
+    # Store the size of the different arguments then flatten input
+    list_len = [len(x) for x in list_x]
+    flat_list_x = [x for xs in list_x for x in xs ]
+
+    output = np.array(q.evaluateMultiple(flat_list_x), dtype = "bool")[:,0]
+
+    # unflattening the output
+    unflattened_result = []
+    sum_l = 0
+    for l in list_len:
+        unflattened_result.append(output[sum_l:sum_l+l])
+        sum_l += l
+
+    nSuccess = sum(isMonotonic(s) for s in unflattened_result)
+
+    pTrue = sum(np.random.choice(s) for s in unflattened_result)/len(unflattened_result)
+    pFalse = 1-pTrue
+    
+    nSuccChance = sum(2*(pTrue**len(s)-pFalse**len(s))/(pTrue-pFalse) for s in unflattened_result)
+    std = 1.0
+
+    return {"Actual success rate": nSuccess/num_samples,
+        "p(success by chance only)": nSuccChance/len(unflattened_result),
+        "p(true)": pTrue,"z-score":(nSuccess-nSuccChance)/(std*num_samples)}
+
+
+
+"""
+Measure how order-invariant a quantifier is
+
+z-score of the binomial test
+"""
+def measure_order_invariance(q, num_samples = 1000, min_len = 3, max_len = 20):
+    
+    success = 0
+    nTrue = 0
+
+    list_x = [np.random.randint(Quantifier.num_chars, size = np.random.randint(min_len, max_len+1)) for _ in range(num_samples)]
+    list_xs = [np.random.permutation(x) for x in list_x]
+
+    list_npX = [np.array([Quantifier.chars[c] for c in x]) for x in list_x]
+    list_npXs = [np.array([Quantifier.chars[c] for c in xs]) for xs in list_xs]
+
+    inputX = list_npX + list_npXs
+    fullOutput = np.array(q.evaluateMultiple(inputX),dtype="bool")
+
+    outputX,outputXs = fullOutput[:num_samples,0],fullOutput[num_samples:,0]
+
+    print(list_x[:10])
+    print(list_xs[:10])
+    print(outputX[:10])
+    print(outputXs[:10])
+
+    nTrue = np.sum(outputX)
+    nSuccess = np.sum(outputX==outputXs)
+
+    print("Num True",nTrue)
+    print("Success",nSuccess)
+
+    # Proba that quantifier outputs True
+    p = nTrue/float(num_samples)
+
+    # Proba that the quantifier succeeds the invariance if quantifier is random
+    pSucc = p**2 + (1-p)**2
+
+    print("Proba success by chance",pSucc)
+
+    # Standard deviation for proba of success
+    std = sqrt(num_samples*pSucc*(1-pSucc))
+
+    # Actual success frequency
+    fSucc = nSuccess/float(num_samples)
+
+    return {"Actual success rate": fSucc,"p(success by chance only)": pSucc,"p(true)": p,"z-score":(nSuccess-num_samples*pSucc)/(std)}
+
+
 
 
 def all_ver(seq):

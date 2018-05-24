@@ -29,6 +29,11 @@ import quantifiers
 
 int_to_char = {1 : "AB" ,2 : "A", 3 : "B", 4 : "_"}
 
+
+
+def boolToOneHot(seq):
+    return np.array([quantifiers.Quantifier.T if obj else quantifiers.Quantifier.F for obj in seq])
+
 def show_data(dataGen, nShow = 20, random = True):
     nData = len(dataGen._labeled_data)
     

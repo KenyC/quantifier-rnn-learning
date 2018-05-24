@@ -282,6 +282,7 @@ def run_trial(eparams, hparams, trial_num,write_path='/tmp/tensorflow/quantexp')
                                          eparams['stop_loss'],
                                          trialN = trial_num,
                                          accuracy_stop = eparams['accuracy_stop'] if 'accuracy_stop' in eparams else 0.99 )])
+    return model
 
 
 # DEFINE AN EXPERIMENT
