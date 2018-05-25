@@ -14,10 +14,10 @@ from quantifier_util import QuantifierFromNN
 
 
 INPUT_FEATURE = 'x'
-WRITE_DIR = "M_atleastthree/"
-PROTO_QUANTIFIER = quantifiers.at_least_n(4)
+WRITE_DIR = "atleastsixoratmosttwo/"
+PROTO_QUANTIFIER = quantifiers.at_least_n_or_at_most_m(6, 2)
 MEASURE = quantifiers.measure_monotonicity
-RUN_TRIAL = [1]
+RUN_TRIAL = [0]
 
 expSetup={
 	"numGenerations": 40, 
