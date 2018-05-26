@@ -17,7 +17,7 @@ INPUT_FEATURE = 'x'
 WRITE_DIR = "M_atleastthree/"
 PROTO_QUANTIFIER = quantifiers.at_least_n(4)
 MEASURE = quantifiers.measure_monotonicity
-RUN_TRIAL = [1]
+RUN_TRIAL = [2]
 
 expSetup={
 	"numGenerations": 40, 

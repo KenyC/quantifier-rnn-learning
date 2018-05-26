@@ -20,9 +20,9 @@ MEASURE = quantifiers.measure_monotonicity
 RUN_TRIAL = [0]
 
 expSetup={
-	"numGenerations": 40, 
-	"dataStop": 20,
-	"evalStops": 50,
+    "numGenerations": 40, 
+    "dataStop": 20,
+    "evalStops": 50,
 }
 
 
@@ -126,15 +126,15 @@ for i in RUN_TRIAL:
 #     model = None
 
 #     for i in range(expSetup["numGenerations"]):
-#     	model = run_one_gen(eparams1,hparams1, i, write_dir_trial)
-#     	newQ = QuantifierFromNN(model)
-#     	hparams1["quantifiers"][0] = newQ
-#     	oi.append(dict(quantifiers.measure_order_invariance(newQ),generation = i))
+#       model = run_one_gen(eparams1,hparams1, i, write_dir_trial)
+#       newQ = QuantifierFromNN(model)
+#       hparams1["quantifiers"][0] = newQ
+#       oi.append(dict(quantifiers.measure_order_invariance(newQ),generation = i))
 
 
 #     with open(write_dir_trial+"results.csv","w") as f:
-#     	writer = csv.DictWriter(f,oi[0].keys())
-#     	writer.writeheader()
-#     	writer.writerows(oi)
+#       writer = csv.DictWriter(f,oi[0].keys())
+#       writer.writeheader()
+#       writer.writerows(oi)
 
 
